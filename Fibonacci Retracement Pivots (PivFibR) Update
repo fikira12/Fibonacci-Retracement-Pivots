@@ -1,0 +1,210 @@
+//@version=4
+// This source code is subject to the terms of the Creative Commons Zero v1.0 Universal license
+// https://github.com/fikira12/Fibonacci-Retracement-Pivots.git
+// Copyright (c) 2019 @fikira
+
+study(title="[fikira] Pivots Fibonacci Retracement 3", shorttitle="PivFibR 3", overlay=true)
+
+darkmode = input(true, title="Darkmode [ON/OFF]")
+
+Wick = input(false, title="-<><><><><><>[to Wick or not to Wick]<><><><>-")
+
+no_wick = input(false, title="'NO WICK' [ON = high/low WITHOUT WICK] [OFF = high/low]")
+
+nwh = close > open ? close : close < open ? open : high // nwh = no wick (high)
+nwl = close > open ? open : close < open ? close : low // nwh = no wick (low)
+
+srch = no_wick ? nwh : high // IF "NO WICK" is ON > take the highest price without wick, else take high (with wick)
+srcl = no_wick ? nwl : low  // IF "NO WICK" is ON > take the lowest price without wick, else take low (with wick)
+
+RES = input(false, title="-<><><><><><><><[Resolution]><><><><><><><>-")
+
+Res = input(false, title="Resolution ON/OFF")
+Resolution = input(title="Resolution", defval="D", options=["1", "3", "5", "15", "30", "45", "60", "120", "180", "240", "D", "W", "M"])  // numbers = minutes, D = Day, W = Week, M = Month
+ticker_high = security(syminfo.tickerid, Resolution, srch, barmerge.gaps_off, barmerge.lookahead_on) 
+ticker_low = security(syminfo.tickerid, Resolution, srcl, barmerge.gaps_off, barmerge.lookahead_on) 
+
+Cust = input(false, title="-<><><><><><><><[Custom]><><><><><><><>-")
+
+customh = input(false, title="Custom input [High] ?")
+_h = input(defval=0.00000001, step=0.00000001, type=input.float, title="Custom [High]")
+customl = input(false, title="Custom input [Low] ?")
+_l = input(defval=0.00000001, step=0.00000001, type=input.float, title="Custom [Low]")
+
+//indexHighTF = barstate.isrealtime ? 1 : 0
+//ticker_high = security(syminfo.tickerid, Resolution, high[indexHighTF], lookahead=barmerge.lookahead_off)
+
+//indexCurrTF = barstate.isrealtime ? 0 : 1
+//a = security(syminfo.tickerid, Resolution, high[indexHighTF], lookahead=barmerge.lookahead_off)
+//ticker_high = a[indexCurrTF]
+
+//source_high = Res ? ticker_high : high
+//source_low = Res ? ticker_low : low
+source_high = Res ? ticker_high : customh ? _h : srch  // IF "Resolution ON/OFF" = ON > uses "security" so you can use other timeframes, else > uses current timeframe
+source_low = Res ? ticker_low : customl ? _l : srcl    // IF "Resolution ON/OFF" = ON > uses "security" so you can use other timeframes, else > uses current timeframe
+
+Bars = input(false, title="-<><><><><><>[LeftBars   RightBars]<><><><><><>-")
+
+LB = input(17, title = "LeftBars")                      // = leftBars, default 17, every bar compares its high/low with the 17 bars at the left side
+RBar = input(3, title = "RightBars")                    // = rightBars, default 3, every bar compares its high/low with the 3 bars at the right side
+// rightBars=input(10)
+
+// If you want the setting of the previous version, where the amount of Right & Left Bars were always the same, 
+// enable the button "[LeftBars = RightBars] > Only change '(Left)Bars'" > Then only change the number "LeftBars" 
+// Then the number of "RightBars" will be exactly as the numbers of "LeftBars".
+LB_RB = input(false, title = "[xLeftBars = xRightBars] > Only change 'LeftBars'")
+
+RB = LB_RB ? LB : RBar                                  
+    
+ph = customh ? _h : pivothigh(source_high, LB, RB)     // = Highest bar compared to LeftBars & RightBars 
+pl = customl ? _l : pivotlow(source_low, LB, RB)       // = Lowest bar compared to LeftBars & RightBars 
+
+Occ = input(false, title="-<><><><><><[Most Recent Occurence]<><><><>-")
+
+occ_h = input(0, minval=0, title="most recent occurence pH") 
+occ_l = input(0, minval=0, title="most recent occurence pL")
+
+hh = valuewhen(ph, source_high[RB], occ_h)                                        // Takes value when there was a pivothigh (=true) on the most recent occurrence (= '0')
+ll = valuewhen(pl, source_low[RB], occ_l)                                         // Takes value when there was a pivotlow (=true) on the most recent occurrence (= '0')
+
+BIh = valuewhen(ph, bar_index, 0) 
+BIl = valuewhen(pl, bar_index, 0) 
+UP = BIh > BIl
+DOWN = BIh < BIl
+// Fibonacci calculations:
+
+Fib = input(false, title="-<><><><><><[Fibonacci Levels]><><><><><><>-")
+
+x0 = input(1, minval=0, maxval=1, step=0.001, title="Fib level [↑1][↓0]")                   // = adjustable, x0 changes x6 (= 1 - x0)
+x1 = input(0.764, minval=0, maxval=1, step=0.001, title="Fib level [↑︎0.764][↓︎0.236]")       // = adjustable, x1 changes x5 (= 1 - x1)
+x2 = input(0.618, minval=0, maxval=1, step=0.001, title="Fib level [↑0.618][↓0.382]")       // = adjustable, x2 changes x4 (= 1 - x2)
+x3 = input(0.5, minval=0, maxval=1, step=0.001, title="Fib level [↑0.5][↓0.5]")             // = adjustable
+x4 = 1 - x2
+x5 = 1 - x1
+x6 = 1 - x0
+
+// Fib Extensions
+Fibe = input(false, title="-<><><><><><[Fib Ext Levels]<><><><><><><>-")
+x_1 = input(1.618, minval=1, maxval=6, step=0.001, title="Fib level [↑1.618][↓1.618]")      // = adjustable
+x_2 = input(2, minval=1, maxval=6, step=0.001, title="Fib level [↑2][↓2]")                  // = adjustable
+
+Fibla = input(false, title="-<><><><><><[Fibonacci Labels]><><><><><><>-")
+
+offs = input(15, title="Fib labels offset")
+
+SIZE = input(title="Size Label", defval="small", options=["tiny", "small", "normal", "huge"])  
+
+_SIZE = size.small
+if SIZE == "tiny"
+    _SIZE := size.tiny
+else
+    if SIZE == "small"
+        _SIZE := size.small
+    else
+        if SIZE == "normal"
+            _SIZE := size.normal
+        else
+            if SIZE == "huge"
+                _SIZE := size.huge
+
+p0 = ll + ((hh - ll) * x0)                  // = [↑1][↓0]
+p1 = ll + ((hh - ll) * x1)                  // = [↑︎0.764][↓︎0.2361
+p2 = ll + ((hh - ll) * x2)                  // = [↑0.618][↓0.382]
+p3 = ll + ((hh - ll) * x3)                  // = [↑0.5][↓0.5]
+p4 = ll + ((hh - ll) * x4)                  // = [↑0.382][↓0.618]
+p5 = ll + ((hh - ll) * x5)                  // = [↑0.236][↓0.764] 
+p6 = ll + ((hh - ll) * x6)                  // = [↑0][↓1]
+
+// Fib Extensions
+p_2 = ll + ((hh - ll) * x_2)                // = [↑2]
+p_1 = ll + ((hh - ll) * x_1)                // = [↑1.618]
+p_7 = hh - ((hh - ll) * x_1)                // = [↓1.618]
+p_8 = hh - ((hh - ll) * x_2)                // = [↓2]
+
+Fibl = input(false, title="-<><><><><><[Fibonacci Lines]<><><><><><><>-")
+
+show_all = input(false, title="Show 1: Fib Lines Left")  // Shows the largest plot, Fibonacci lines in history
+Show_last = input(true, title="Show 2: Last Fib Lines Right side") // Shows the smallest plot (at the right), Last Fibonacci lines
+track = input(true, title="Show 3: Straight Fib Lines (only if 'Show 2' = ON)")
+_track = track and Show_last ? true : false
+sl = input(2, title="Show Last Fib - Period")
+ofs = input(-1, title="Show Last Fib - Offset")
+
+plot(p_2, color=show_all ? color.purple : na, transp=0, offset=-RB, title="[↑2]")
+plot(p_1, color=show_all ? color.aqua : na, transp=0, offset=-RB, title="[↑1.618]")
+f1 = plot(p0, color=show_all and darkmode ? color.white : show_all and not darkmode ? color.black : na, transp=0, offset=-RB, title="[↑1][↓0]")
+plot(p1, color=show_all ? color.red : na, transp=0, offset=-RB, title="[↑︎0.764][↓︎0.236]")
+plot(p2, color=show_all ? color.orange : na, transp=0, offset=-RB, title="[↑0.618][↓0.382]")
+plot(p3, color=show_all ? color.lime : na, transp=0, offset=-RB, title="[↑0.5][↓0.5]")
+plot(p4, color=show_all ? color.orange : na, transp=0, offset=-RB, title="[↑0.382][↓0.618]")
+plot(p5, color=show_all ? color.red : na, transp=0, offset=-RB, title="[↑0.236][↓0.764]")
+f2 = plot(p6, color=show_all and darkmode ? color.white : show_all and not darkmode ? color.black : na, transp=0, offset=-RB, title="[↑0][↓1]")
+plot(p_7, color=show_all ? color.aqua : na, transp=0, offset=-RB, title="[↓1.618]")
+plot(p_8, color=show_all ? color.purple : na, transp=0, offset=-RB, title="[↓2]")
+
+fill(f1, f2, color=show_all and darkmode ? color.white : show_all and not darkmode ? color.black : na, transp=95, title="BG Fib [↑0][↓1] - [↑1][↓0]")
+
+plot(p_2, style=plot.style_line, color=Show_last ? color.purple : na, trackprice=_track, transp=0, show_last=sl, offset=-ofs, title="[↑2] (Show Last)")
+plot(p_1, style=plot.style_line, color=Show_last ? color.aqua : na, trackprice=_track, transp=0, show_last=sl, offset=-ofs, title="[↑1.618] (Show Last)")
+f_1 = plot(p0, style=plot.style_line, color=Show_last and darkmode ? color.white : Show_last and not darkmode ? color.black : na, trackprice=_track, transp=0, show_last=sl, offset=-ofs, title="[↑1][↓0] (Show Last)")
+plot(p1, style=plot.style_line, color=Show_last ? color.red : na, trackprice=_track, transp=0, show_last=sl, offset=-ofs, title="[↑︎0.764][↓︎0.236] (Show Last)")
+plot(p2, style=plot.style_line, color=Show_last ? color.orange : na, trackprice=_track, transp=0, show_last=sl, offset=-ofs, title="[↑0.618][↓0.382] (Show Last)")
+plot(p3, style=plot.style_line, color=Show_last ? color.lime : na, trackprice=_track, transp=0, show_last=sl, offset=-ofs, title="[↑0.5][↓0.5] (Show Last)")
+plot(p4, style=plot.style_line, color=Show_last ? color.orange : na, trackprice=_track, transp=0, show_last=sl, offset=-ofs, title="[↑0.382][↓0.618] (Show Last)")
+plot(p5, style=plot.style_line, color=Show_last ? color.red : na, trackprice=_track, transp=0, show_last=sl, offset=-ofs, title="[↑0.236][↓0.764] (Show Last)")
+f_2 = plot(p6, style=plot.style_line, color=Show_last and darkmode ? color.white : Show_last and not darkmode ? color.black : na, trackprice=_track, transp=0, show_last=sl, offset=-ofs, title="[↑0][↓1] (Show Last)")
+plot(p_7, style=plot.style_line, color=Show_last ? color.aqua : na, trackprice=_track, transp=0, show_last=sl, offset=-ofs, title="[↓1.618] (Show Last)")
+plot(p_8, style=plot.style_line, color=Show_last ? color.purple : na, trackprice=_track, transp=0, show_last=sl, offset=-ofs, title="[↓2] (Show Last)")
+
+X = timenow + round(change(time)*offs)
+transp0dark = color.new(color.black, 60)
+transp1dark = color.new(color.red, 60)
+transp2dark = color.new(color.yellow, 60)
+transp3dark = color.new(color.lime, 60)
+transp4dark = color.new(color.aqua, 60)
+transp5dark = color.new(color.purple, 60)
+textcoldark = color.new(color.white, 40)
+transp0 = color.new(color.black, 20)
+transp1 = color.new(color.red, 20)
+transp2 = color.new(color.orange, 0)
+transp3 = color.new(color.green, 10)
+transp4 = color.new(color.aqua, 20)
+transp5 = color.new(color.purple, 20)
+textcol = color.new(color.white, 0)
+
+p0a = label.new(x=X, y=p0, text="[↑" + tostring(x0) + "]      " + "        [↓" + tostring(x6) + "]" + "\n" + tostring(p0), xloc=xloc.bar_time, yloc=yloc.price, color=darkmode?transp0dark:transp0, style=label.style_labeldown, textcolor=darkmode?textcoldark:textcol, size=_SIZE)
+label.delete(p0a[1])
+p1a = label.new(x=X, y=p1, text="[↑" + tostring(x1) + "]" + " [↓" + tostring(x5) + "]" + "\n" + tostring(p1), xloc=xloc.bar_time, yloc=yloc.price, color=darkmode?transp1dark:transp1, style=label.style_labeldown, textcolor=darkmode?textcoldark:textcol, size=_SIZE)
+label.delete(p1a[1])
+p2a = label.new(x=X, y=p2, text="[↑" + tostring(x2) + "]" + " [↓" + tostring(x4) + "]" + "\n" + tostring(p2), xloc=xloc.bar_time, yloc=yloc.price, color=darkmode?transp2dark:transp2, style=label.style_labeldown, textcolor=darkmode?textcoldark:textcol, size=_SIZE)
+label.delete(p2a[1])
+p3a = label.new(x=X, y=p3, text="[↑" + tostring(x3) + "]    " + "    [↓" + tostring(x3) + "]" + "\n" + tostring(p3), xloc=xloc.bar_time, yloc=yloc.price, color=darkmode?transp3dark:transp3, style=label.style_labeldown, textcolor=darkmode?textcoldark:textcol, size=_SIZE)
+label.delete(p3a[1])
+p4a = label.new(x=X, y=p4, text="[↑" + tostring(x4) + "]" + " [↓" + tostring(x2) + "]" + "\n" + tostring(p4), xloc=xloc.bar_time, yloc=yloc.price, color=darkmode?transp2dark:transp2, style=label.style_labeldown, textcolor=darkmode?textcoldark:textcol, size=_SIZE)
+label.delete(p4a[1])
+p5a = label.new(x=X, y=p5, text="[↑" + tostring(x5) + "]" + " [↓" + tostring(x1) + "]" + "\n" + tostring(p5), xloc=xloc.bar_time, yloc=yloc.price, color=darkmode?transp1dark:transp1, style=label.style_labeldown, textcolor=darkmode?textcoldark:textcol, size=_SIZE)
+label.delete(p5a[1])
+p6a = label.new(x=X, y=p6, text="[↑" + tostring(x6) + "]      " + "        [↓" + tostring(x0) + "]" + "\n" + tostring(p6), xloc=xloc.bar_time, yloc=yloc.price, color=darkmode?transp0dark:transp0, style=label.style_labeldown, textcolor=darkmode?textcoldark:textcol, size=_SIZE)
+label.delete(p6a[1])
+
+// Fib Extensions
+
+p2_a = label.new(x=X, y=p_2, text="[↑" + tostring(x_2) + "]" + "\n" + tostring(p_2), xloc=xloc.bar_time, yloc=yloc.price, color=darkmode?transp5dark:transp5, style=label.style_labeldown, textcolor=darkmode?textcoldark:textcol, size=_SIZE)
+label.delete(p2_a[1])
+p1_a = label.new(x=X, y=p_1, text="[↑" + tostring(x_1) + "]" + "\n" + tostring(p_1), xloc=xloc.bar_time, yloc=yloc.price, color=darkmode?transp4dark:transp4, style=label.style_labeldown, textcolor=darkmode?textcoldark:textcol, size=_SIZE)
+label.delete(p1_a[1])
+p7_a = label.new(x=X, y=p_7, text="[↓" + tostring(x_1) + "]" + "\n" + tostring(p_7), xloc=xloc.bar_time, yloc=yloc.price, color=darkmode?transp4dark:transp4, style=label.style_labeldown, textcolor=darkmode?textcoldark:textcol, size=_SIZE)
+label.delete(p7_a[1])
+p8_a = label.new(x=X, y=p_8, text="[↓" + tostring(x_2) + "]" + "\n" + tostring(p_8), xloc=xloc.bar_time, yloc=yloc.price, color=darkmode?transp5dark:transp5, style=label.style_labeldown, textcolor=darkmode?textcoldark:textcol, size=_SIZE)
+label.delete(p8_a[1])
+
+plotshape(customh ? na : ph, style=shape.labeldown, text="pH", textcolor=color.white, transp=50, location=location.abovebar, color= color.red, size=size.tiny, offset=-RB, title="Pivot High")
+plotshape(customl ? na : pl, style=shape.labelup,  text="pL", textcolor=color.white, transp=50, location=location.belowbar, color= color.green, size=size.tiny, offset=-RB, title="Pivot Low")
+
+// When creating an Alert:
+// > "CONDITION": "PivFibR" > "Pivot High/Low Alert"
+// > "OPTIONS" > please use "Once Per Bar Close" to avoid false repainting alerts
+ph_alert = ph ? true : na
+alertcondition(ph_alert, title='Pivot High Alert', message='Pivot High Alert')
+pl_alert = pl ? true : na
+alertcondition(pl_alert, title='Pivot Low Alert', message='Pivot Low Alert')
